@@ -203,7 +203,7 @@ public class ChatServer {
                     leave(sc, key, false, false);
                     break;
                 case "/bye":
-                    bye(sc, key);
+                    bye(sc, key);    
                     break;
                 case "/nick":
                     if (messageSplit.length != 2) {
@@ -225,6 +225,14 @@ public class ChatServer {
                         break;
                     }
                     sendPrivateMessage(messageSplit[1], sc, key);
+                    break;
+                case "/merge":
+                    String messageDiv[] = message.split(" ", 3);
+                    if (messageDiv.length != 3) {
+                        sendMessage(sc, "ERROR" + System.lineSeparator());
+                        break;
+                    }
+                    mergeRoom(messageDiv[1], sc, key, messageDiv[2]);
                     break;
                 default:
                     sendMessage(sc, "ERROR" + System.lineSeparator());
@@ -265,6 +273,44 @@ public class ChatServer {
         }
     }
 
+    static private void mergeRoom(String roomName, SocketChannel sc, SelectionKey key, String lastRoom) throws IOException {
+        
+        if (!chatRooms.containsKey(roomName) || !chatRooms.containsKey(lastRoom)) {
+            sendMessage(sc, "ERROR: One or both rooms do not exist" + System.lineSeparator());
+            return;
+        }
+
+        for (Client lastTmp : chatRooms.get(lastRoom).currentClients) {
+            for (Client tmp : chatRooms.get(roomName).currentClients) {
+                if (tmp.username.equals(lastTmp.username)) {
+                    sendMessage(sc, "ERROR: duplicate username" + System.lineSeparator());
+                    return;
+                }
+            }
+        }
+
+        for (Client lastTmp : chatRooms.get(lastRoom).currentClients) {
+            chatRooms.get(roomName).currentClients.add(lastTmp);
+            lastTmp.currentRoomIdentifier = roomName;
+        
+            // Notify clients in the new room
+            for (Client tmp : chatRooms.get(roomName).currentClients) {
+                if (!tmp.username.equals(lastTmp.username)) {
+                    String noti = lastTmp.username + " from " + lastRoom + " joined " + roomName + System.lineSeparator();
+                    sendMessage(tmp.socketChannel, noti);
+                    sendMessage(tmp.socketChannel, "OK: MERGE SUCCESSFUL" + System.lineSeparator());
+
+                }
+            }
+        }
+        
+        // Clean up the source room
+        chatRooms.remove(lastRoom);
+    
+        // Acknowledge the merge to the requesting client
+        sendMessage(sc, "OK: MERGE SUCCESSFUL" + System.lineSeparator());
+    }
+
     static private void broadcastToRoom(String room, String user, String message) throws IOException {
         for (Client tmp : chatRooms.get(room).currentClients) {
             sendMessage(clients.get(tmp.username).socketChannel, message);
@@ -278,22 +324,21 @@ public class ChatServer {
     }
 
     static private void changeNickname(String newUsername, SocketChannel sc, SelectionKey key) throws IOException {
+        Client currentClient = (Client) key.attachment();
+        
         // Username already used
         if (clients.containsKey(newUsername)) {
             sendMessage(sc, "ERROR" + System.lineSeparator());
             return;
         }
 
-        Client currentClient = (Client) key.attachment();
-
         String oldUsername = currentClient.username;
 
         clients.remove(oldUsername);
-
         currentClient.username = newUsername;
-
         clients.put(newUsername, currentClient);
 
+        // Notify the others in the same room
         if (currentClient.state == ConnectionState.INSIDE) {
             String message = "NEWNICK " + oldUsername + " " + newUsername + System.lineSeparator();
             broadcastToRoom(currentClient.currentRoomIdentifier, currentClient.username, message);
@@ -307,6 +352,7 @@ public class ChatServer {
     static private void join(String roomName, SocketChannel sc, SelectionKey key) throws IOException {
         Client clientWantJoin = (Client) key.attachment();
 
+        // Not chosen a username 
         if (clientWantJoin.state == ConnectionState.INIT) {
             sendMessage(sc, "ERROR" + System.lineSeparator());
             return;
@@ -323,9 +369,10 @@ public class ChatServer {
 
             chatRooms.get(roomName).currentClients.add(clientWantJoin);
             clientWantJoin.currentRoomIdentifier = roomName;
-
             clientWantJoin.state = ConnectionState.INSIDE;
+        
         } else if (clientWantJoin.state == ConnectionState.INSIDE) {
+            //leave the current room before joining the new one
             leave(sc, key, true, false);
 
             String message = "JOINED " + clientWantJoin.username + " " + roomName + System.lineSeparator();

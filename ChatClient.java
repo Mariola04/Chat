@@ -28,7 +28,7 @@ public class ChatClient {
     static private final Charset charset = Charset.forName("UTF8");
     static private final CharsetDecoder decoder = charset.newDecoder();
 
-    java.util.List availableCommands = Arrays.asList("/join", "/leave", "/bye", "/nick", "/priv");
+    java.util.List availableCommands = Arrays.asList("/join", "/leave", "/bye", "/nick", "/priv", "/merge");
 
     // Método a usar para acrescentar uma string à caixa de texto
     // * NÃO MODIFICAR *
@@ -119,6 +119,13 @@ public class ChatClient {
         switch (messageSplit[0]) {
             case "MESSAGE":
                 message = messageSplit[1] + ": " + messageSplit[2] + "\n";
+                break;
+            case "MERGED":
+                if (messageSplit.length == 3) {
+                    message = "Room " + messageSplit[1] + " was merged into " + messageSplit[2] + "\n";
+                } else {
+                    message = messageSplit[1] + " Rooms were merged successfully\n";
+                }
                 break;
             case "JOINED":
                 if (messageSplit.length == 3) {

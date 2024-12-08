@@ -141,3 +141,13 @@ public class Server
     return true;
   }
 }
+
+
+
+// Client(String username, SocketChannel socketChannel) {
+//   this.username = username;
+//   this.socketChannel = socketChannel;
+//   this.messageBuffer = "";
+//   this.state = ConnectionState.INIT;
+//   this.currentRoomIdentifier = null;
+// }
