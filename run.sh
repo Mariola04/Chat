@@ -26,7 +26,3 @@ if [ "$#" -eq 2 ]; then
 	fi
 fi
 
-# if lsof -i :8000 > /dev/null; then
-#     echo "Port 8000 is in use. Killing the process..."
-#     kill -9 $(lsof -t -i :8000)
-# fi
